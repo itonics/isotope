@@ -321,6 +321,9 @@
 
     this._create( options );
     this._init( callback );
+
+    this.elemLength = 0;
+    this.isRelayoutAllowed = true;
   };
 
   // styles of container element we want to keep track of
@@ -333,6 +336,16 @@
     layoutMode : 'masonry',
     containerClass : 'isotope',
     itemClass : 'isotope-item',
+
+    // <-- Modified by :Itonics Team
+    defaultLoadAnimation : "scale",           // "scale" || "translate"
+    defaultLayoutAnimation : "translate",     // "scale" || "translate"
+    itemLoadedClass : "item-loaded",
+    scaleAnimationStartClass : "loading-animation-start",
+    scaleAnimationEndClass : "loading-animation-end",
+    translateAnimationClass : "relayout-animation",
+    // -->
+
     hiddenClass : 'isotope-hidden',
     hiddenStyle: { opacity: 0, scale: 0.001 },
     visibleStyle: { opacity: 1, scale: 1 },
@@ -356,8 +369,10 @@
 
     // sets up widget
     _create : function( options ) {
-
+      console.log("create isotope!!!");
       this.options = $.extend( {}, $.Isotope.settings, options );
+
+      console.log("Options",this.options);
 
       this.styleQueue = [];
       this.elemCount = 0;
@@ -423,35 +438,114 @@
     },
 
     _getAtoms : function( $elems ) {
+      var plugin = this;
       var selector = this.options.itemSelector,
-          // filter & find
-          $atoms = selector ? $elems.filter( selector ).add( $elems.find( selector ) ) : $elems,
-          // base style for atoms
-          atomStyle = { position: 'absolute' };
+      // filter & find
+        $atoms = selector ? $elems.filter(selector).add($elems.find(selector)) : $elems,
+      // base style for atoms
+        atomStyle = {position: 'absolute'};
 
       // filter out text nodes
-      $atoms = $atoms.filter( function( i, atom ) {
+      $atoms = $atoms.filter(function (i, atom) {
         return atom.nodeType === 1;
       });
 
-      if ( this.usingTransforms ) {
+      if (this.usingTransforms) {
         atomStyle.left = 0;
         atomStyle.top = 0;
       }
 
-      $atoms.css( atomStyle ).addClass( this.options.itemClass );
+      $atoms.css(atomStyle).addClass( this.options.itemClass );
+
+      // <-- Modified by Itonics Team
+      // for implementation of animation to be executed after items get loaded
+      if (!this.isUsingJQueryAnimation && this.options.defaultLoadAnimation === "scale") {
+        this.addScaleAnimation($atoms, function() {
+          $atoms.addClass(plugin.options.itemLoadedClass);
+        });
+      }else{
+        $atoms.addClass(plugin.options.itemLoadedClass);
+      }
+      // -->
 
       this.updateSortData( $atoms, true );
 
       return $atoms;
     },
 
+    // <-- Modified by Itonics Team
+    addScaleAnimation : function ($item, callback){
+      //console.log($item,$item.find('.temp-loading').size());
+      var plugin = this;
+      var $tempAnimDiv;
+
+      $item.removeClass(plugin.options.scaleAnimationEndClass);
+      $item.addClass( plugin.options.scaleAnimationStartClass );
+
+      if($item.find('.temp-loading').size()>0){
+        $tempAnimDiv = $($item.find('.temp-loading'));
+      }else {
+        // Creating a temporary Div for loading animation and then removing the div after the loading (css3) animation completes
+        $tempAnimDiv = $("<div class='temp-loading' />").append($item.contents());
+        $tempAnimDiv.appendTo($item);
+      }
+
+      this.onCssAnimEndEvent($tempAnimDiv, function () {
+        plugin.removeTempDiv($tempAnimDiv);
+        if (callback && typeof callback === 'function')callback();
+      });
+
+      // removing load animation class to execute animation
+      if($item.length > 0) {
+        setTimeout(function () {
+          plugin.triggerAnimation($item);
+        }, 20);
+      }
+    },
+
+    triggerAnimation : function ($item){
+      var plugin = this;
+      //check height before triggering animations
+      if ($item[0].offsetHeight > 0) {
+        $item.removeClass(plugin.options.scaleAnimationStartClass);
+        $item.addClass(plugin.options.scaleAnimationEndClass);
+      } else {
+        setTimeout(function () {
+          plugin.triggerAnimation($item);
+        },20);
+      }
+    },
+
+    removeTempDiv : function ($tempDiv){
+      $tempDiv.contents().appendTo($tempDiv.parent());
+      $tempDiv.remove();
+    },
+
+    onCssAnimEndEvent : function( $item, callBack ){
+      $item.one('transitionend webkitTransitionEnd oTransitionEnd otransitionend MSTransitionEnd', callBack);
+    },
+
+
+    getAtomArray : function ($elems){
+      var atomArray = [];
+
+      for(var $obj in $elems) {
+        if (typeof $elems[$obj] == 'object' && $($elems[$obj]).length == 1 && $($elems[$obj]).hasClass('entity-tile')) {
+          atomArray.push($($elems[$obj]));
+        }
+      }
+
+      return atomArray;
+    },
+
+    // -->
+
     // _init fires when your instance is first created
     // (from the constructor above), and when you
     // attempt to initialize the widget again (by the bridge)
     // after it has already been initialized.
     _init : function( callback ) {
-
+      console.log("Isotope Initialized!!!");
       this.$filteredAtoms = this._filter( this.$allAtoms );
       this._sort();
       this.reLayout( callback );
@@ -613,8 +707,9 @@
 
     // used on collection of atoms (should be filtered, and sorted before )
     // accepts atoms-to-be-laid-out to start with
-    layout : function( $elems, callback ) {
-
+    layout : function( $elems, callback, layoutAnimationType ) {
+      layoutAnimationType = typeof layoutAnimationType !== 'undefined'? layoutAnimationType : this.options.defaultLayoutAnimation;
+      var plugin = this;
       var layoutMode = this.options.layoutMode;
 
       // layout logic
@@ -627,6 +722,29 @@
       }
 
       this._processStyleQueue( $elems, callback );
+
+      // <!-- Modified by Itonics Team
+      // Implementing relayout css class in each of the entities/items
+      for(var $obj in this.getAtomArray($elems)){
+        var $item = this.getAtomArray($elems)[$obj];
+        if($item.hasClass('hidden'))$item.removeClass('hidden');
+        if($item.hasClass(plugin.options.itemLoadedClass)) {
+          if (layoutAnimationType === 'translate') {
+            $item.addClass(plugin.options.translateAnimationClass);
+            // removing relayout css class after layout (css3) animation completes
+            plugin.onCssAnimEndEvent($item, function () {
+              $item.removeClass(plugin.options.translateAnimationClass);
+            });
+          } else if (layoutAnimationType === 'scale' && $elems.length == this.elemLength) {
+            $item.removeClass(plugin.options.translateAnimationClass);
+            plugin.addScaleAnimation($item);
+          } else {
+            $item.removeClass(plugin.options.translateAnimationClass + " " + plugin.options.scaleAnimationStartClass);
+          }
+        }
+      }
+      this.elemLength = $elems.length;
+      // -->
 
       this.isLaidOut = true;
     },
@@ -697,6 +815,7 @@
             }
             testElem = styleObj.$el;
           }
+
           // get transition duration of the first element in that object
           // yeah, this is inexact
           var duration = parseFloat( getComputedStyle( testElem[0] )[ transitionDurProp ] );
@@ -710,7 +829,7 @@
           }
         }
       }
-
+     // console.log("Isotope Objects: ", this.styleQueue, processor);
       // process styleQueue
       $.each( this.styleQueue, processor );
 
@@ -731,11 +850,43 @@
 
 
     reLayout : function( callback ) {
+      console.log('relayout!!!!');
 
-      this[ '_' +  this.options.layoutMode + 'Reset' ]();
-      this.layout( this.$filteredAtoms, callback );
+      if(!this.isRelayoutAllowed)return;
+
+      this['_' + this.options.layoutMode + 'Reset']();
+
+      // this.layout(this.$filteredAtoms, callback);
+      // <!-- Modified by Itonics Team
+      if(typeof callback == 'string') {
+        this.layout(this.$filteredAtoms, null, callback);
+      }else{
+        this.layout(this.$filteredAtoms, callback);
+      }
+      // -->
 
     },
+
+    // <!-- Added by Itonics Team
+    // purpose of this method is to update the isotope layout after view changes
+    reLayoutViewChange : function( val ){
+      val = (typeof val === 'undefined') ? 'none' : val;
+      var plugin = this;
+      this.isRelayoutAllowed = false;
+      plugin.element.css('visibility','hidden');
+
+      for(var $obj in plugin.getAtomArray(this.$filteredAtoms)) {
+        plugin.getAtomArray(this.$filteredAtoms)[$obj].removeClass(plugin.options.scaleAnimationStartClass + " " +plugin.options.translateAnimationClass);
+      }
+
+      setTimeout(function(){
+        plugin.isRelayoutAllowed = true;
+        plugin.reLayout(val);
+        plugin.element.css('visibility','visible');
+      },50);
+    },
+
+    // -->
 
     // ====================== Convenience methods ======================
 
@@ -746,7 +897,6 @@
       var $newAtoms = this._getAtoms( $content );
       // add new atoms to atoms pools
       this.$allAtoms = this.$allAtoms.add( $newAtoms );
-
       if ( callback ) {
         callback( $newAtoms );
       }
@@ -757,7 +907,6 @@
     insert : function( $content, callback ) {
       // position items
       this.element.append( $content );
-
       var instance = this;
       this.addItems( $content, function( $newAtoms ) {
         var $newFilteredAtoms = instance._filter( $newAtoms );
@@ -766,7 +915,7 @@
         instance.reLayout();
         instance._revealAppended( $newFilteredAtoms, callback );
       });
-
+      console.log('insert:', $content);
     },
 
     // convienence method for working with Infinite Scroll
@@ -781,6 +930,7 @@
 
     // adds new atoms, then hides them before positioning
     _addHideAppended : function( $newAtoms ) {
+
       this.$filteredAtoms = this.$filteredAtoms.add( $newAtoms );
       $newAtoms.addClass('no-transition');
 
@@ -807,6 +957,7 @@
     // gathers all atoms
     reloadItems : function() {
       this.$allAtoms = this._getAtoms( this.element.children() );
+      //console.log("reloadItems:", this.$allAtoms);
     },
 
     // removes elements from Isotope widget
