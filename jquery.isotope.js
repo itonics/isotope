@@ -672,7 +672,27 @@
               a = getSorter( alpha, 'original-order' );
               b = getSorter( beta, 'original-order' );
             }
-            return ( ( a > b ) ? 1 : ( a < b ) ? -1 : 0 ) * sortDir;
+			
+			//itonics - added a locale comparision
+            if (typeof a === 'string') {
+              //localeCompare(compareString)
+
+              var localeCompar = a.localeCompare(b);
+              var sortValue = 0;
+
+              if (localeCompar > 0) {
+                sortValue = 1;
+              } else if (localeCompar < 0) {
+                sortValue = -1;
+              } else {
+                sortValue = 0;
+              }
+
+              return sortValue * sortDir;
+
+            } else {
+			  return ( ( a > b ) ? 1 : ( a < b ) ? -1 : 0 ) * sortDir;
+			}
           };
 
       this.$filteredAtoms.sort( sortFn );
