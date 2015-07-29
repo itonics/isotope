@@ -668,10 +668,11 @@
             var a = getSorter( alpha, sortBy ),
                 b = getSorter( beta, sortBy );
             // fall back to original order if data matches
-            if ( a === b && sortBy !== 'original-order') {
+			// itonics: do not use fallback if both values are same
+            /*if ( a === b && sortBy !== 'original-order') {
               a = getSorter( alpha, 'original-order' );
               b = getSorter( beta, 'original-order' );
-            }
+            }*/
 			
 			//itonics - added a locale comparision
             if (typeof a === 'string') {
