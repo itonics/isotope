@@ -665,16 +665,16 @@
           getSorter = this._getSorter,
           sortDir = this.options.sortAscending ? 1 : -1,
           sortFn = function( alpha, beta ) {
-            var a = getSorter( alpha, sortBy ),
-                b = getSorter( beta, sortBy );
+            var a = getSorter(alpha, sortBy),
+              b = getSorter(beta, sortBy);
             // fall back to original order if data matches
-			// itonics: do not use fallback if both values are same
-            /*if ( a === b && sortBy !== 'original-order') {
-              a = getSorter( alpha, 'original-order' );
-              b = getSorter( beta, 'original-order' );
-            }*/
-			
-			//itonics - added a locale comparision
+            // itonics: fall back to searchOrder order if data matches
+            if (a === b && sortBy !== 'searchOrder') {
+              a = getSorter(alpha, 'searchOrder');
+              b = getSorter(beta, 'searchOrder');
+            }
+
+            //itonics - added a locale comparision
             if (typeof a === 'string') {
               //localeCompare(compareString)
 
@@ -692,8 +692,8 @@
               return sortValue * sortDir;
 
             } else {
-			  return ( ( a > b ) ? 1 : ( a < b ) ? -1 : 0 ) * sortDir;
-			}
+              return ( ( a > b ) ? 1 : ( a < b ) ? -1 : 0 ) * sortDir;
+            }
           };
 
       this.$filteredAtoms.sort( sortFn );
