@@ -369,10 +369,10 @@
 
     // sets up widget
     _create : function( options ) {
-      console.log("create isotope!!!");
+      //console.log("create isotope!!!");
       this.options = $.extend( {}, $.Isotope.settings, options );
 
-      console.log("Options",this.options);
+      //console.log("Options",this.options);
 
       this.styleQueue = [];
       this.elemCount = 0;
@@ -545,7 +545,7 @@
     // attempt to initialize the widget again (by the bridge)
     // after it has already been initialized.
     _init : function( callback ) {
-      console.log("Isotope Initialized!!!");
+      //console.log("Isotope Initialized!!!");
       this.$filteredAtoms = this._filter( this.$allAtoms );
       this._sort();
       this.reLayout( callback );
@@ -871,7 +871,7 @@
 
 
     reLayout : function( callback ) {
-      console.log('relayout!!!!');
+      //console.log('relayout!!!!');
 
       if(!this.isRelayoutAllowed)return;
 
@@ -936,7 +936,7 @@
         instance.reLayout();
         instance._revealAppended( $newFilteredAtoms, callback );
       });
-      console.log('insert:', $content);
+      //console.log('insert:', $content);
     },
 
     // convienence method for working with Infinite Scroll
